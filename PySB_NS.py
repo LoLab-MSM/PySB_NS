@@ -29,7 +29,7 @@ class NS:
         self.prior_2kf = [-8, -4]
         self.prior_1kr = [-4, 0]
         self.prior_1kc = [-1, 3]
-        self.iterations = 100
+        self.iterations = 10000
         self.scalar = 10.0
         self.scalar_limit = .01
         self.evidence = -1e300
@@ -103,7 +103,7 @@ class NS:
             likelihood = self._compute_likelihood(point)
             if likelihood:
                 self.working_set.append([likelihood, point])
-                print k, likelihood
+                print k, likelihood, point
                 k += 1
 
         self.working_set.sort(reverse = True)
