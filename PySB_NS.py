@@ -103,7 +103,7 @@ class NS:
         # construct the working population of N parameter sets
         k=0
         while k < self.N:
-
+            print k
             # randomly choose points from parameter space
             point = []
             for each in self.params:
@@ -114,7 +114,6 @@ class NS:
             likelihood = self._compute_likelihood(point)
             if likelihood:
                 self.working_set.append([likelihood, point])
-                print k, likelihood, point
                 k += 1
 
         self.working_set.sort(reverse = True)
@@ -160,7 +159,8 @@ class NS:
             # calculate objective
             test_point_objective = self._compute_likelihood(test_point)
 
-            print index, useless_samples, test_point_objective, self.working_set[-1][0]
+            # if index % 100 == 0:
+            print index, self.scalar
 
             # check if sample is within cost bound
             if not isnan(test_point_objective):
@@ -225,8 +225,6 @@ class NS:
 
             # update evidence and working set
             LH_addition = self.working_set[-1][0]
-
-            print index, LH_addition
 
             width = log(exp(-((float(index) - 1) / self.N)) - exp(-(float(index) / self.N)))
             self.width_LH.append([width, LH_addition])
