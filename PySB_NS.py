@@ -33,8 +33,9 @@ class NS:
         self.scalar = 10.0
         self.scalar_limit = .01
         self.evidence = -1e300
+        self.information = 0.0
         self.useless = 10
-        self.N = 10
+        self.N = 1000
         self.time = []
         self.working_set = []
         self.params = []
@@ -45,7 +46,17 @@ class NS:
             self._nested_sampling_KDE()
         if alg == 'MCMC':
             self._nested_sampling_MCMC()
-        print self.evidence
+        self.output()
+
+
+    def output(self):
+
+        summary_object = self.model.name
+        summary = open(summary_object, 'w')
+        summary.write('parameters: ' + str(len(self.params)) + '\n')
+        summary.write('evidence = ' + str(self.evidence) + ' +/- ' + str(sqrt(self.information / self.N)) + '\n')
+        summary.write('stop criteria: ' + self.stop + '\n\n')
+        summary.close
 
     def importData(self):
 
@@ -159,7 +170,10 @@ class NS:
                     LH_addition = self.working_set.pop()[0]
                     width = log(exp(-((float(index) - 1) / self.N)) - exp(-(float(index) / self.N)))
                     self.width_LH.append([width, LH_addition])
+                    old_evi = float(self.evidence)
                     self.evidence = np.logaddexp(float(self.evidence), (LH_addition + width))
+                    self.information = exp((LH_addition + width) - self.evidence) * LH_addition + \
+                            exp(old_evi - self.evidence) * (self.information + old_evi) - self.evidence
                     self.working_set.append([test_point_objective, list(test_point)])
                     self.working_set.sort(reverse=True)
                     useless_samples = 0
@@ -169,6 +183,11 @@ class NS:
                     useless_samples += 1
             else:
                 useless_samples += 1
+
+        if index < self.iterations:
+            self.stop = 'scalar_limit'
+        else:
+            self.stop = 'iterations'
 
         # add the likelihood from the working set
         for each in self.working_set:
