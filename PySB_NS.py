@@ -29,13 +29,15 @@ class NS:
         self.prior_2kf = [-8, -4]
         self.prior_1kr = [-4, 0]
         self.prior_1kc = [-1, 3]
-        self.iterations = 10000
+        self.iterations = 1000
         self.scalar = 10.0
-        self.scalar_limit = .01
+        self.scalar_reduction = 0
+        self.scalar_limit = .0001
         self.evidence = -1e300
         self.information = 0.0
+        self.iteration = 0
         self.useless = 10
-        self.N = 1000
+        self.N = 100
         self.time = []
         self.working_set = []
         self.params = []
@@ -44,19 +46,33 @@ class NS:
         self._initiate_log()
         if alg == 'NS':
             self._nested_sampling_KDE()
+            self._output()
         if alg == 'MCMC':
             self._nested_sampling_MCMC()
-        self.output()
+            self._output()
 
 
-    def output(self):
+    def _output(self):
 
         summary_object = self.model.name
         summary = open(summary_object, 'w')
         summary.write('parameters: ' + str(len(self.params)) + '\n')
-        summary.write('evidence = ' + str(self.evidence) + ' +/- ' + str(sqrt(self.information / self.N)) + '\n')
+        summary.write('iteration: ' + str(self.iteration) + '\n')
+        summary.write('scalar: ' + str(self.scalar) + '\n')
+        summary.write('scalar reduction: ' + str(self.scalar_reduction) + '\n')
+        summary.write('evidence: ' + str(self.evidence) + ' +/- ' + str(sqrt(self.information / self.N)) + '\n')
+        summary.write('information: ' + str(self.information) + '\n')
         summary.write('stop criteria: ' + self.stop + '\n\n')
-        summary.close
+        summary.close()
+        print
+        print self.model.name
+        print 'parameters: ' + str(len(self.params))
+        print 'iteration: ' + str(self.iteration)
+        print 'scalar: ' + str(self.scalar)
+        print 'scalar reduction: ' + str(self.scalar_reduction)
+        print 'evidence: ' + str(self.evidence) + ' +/- ' + str(sqrt(self.information / self.N))
+        print 'information: ' + str(self.information)
+        print 'stop criteria: ' + self.stop + '\n\n'
 
     def importData(self):
 
@@ -103,7 +119,7 @@ class NS:
         # construct the working population of N parameter sets
         k=0
         while k < self.N:
-            print k
+
             # randomly choose points from parameter space
             point = []
             for each in self.params:
@@ -112,7 +128,7 @@ class NS:
                 else:
                     point.append(each)
             likelihood = self._compute_likelihood(point)
-            if likelihood:
+            if not isnan(likelihood):
                 self.working_set.append([likelihood, point])
                 k += 1
 
@@ -136,7 +152,7 @@ class NS:
         if isinstance(cost, float):
             return cost
         else:
-            return False
+            return False # doesn't seem to do anything
 
     def _nested_sampling_KDE(self):
 
@@ -145,6 +161,8 @@ class NS:
 
         while index < self.iterations and self.scalar > self.scalar_limit:
 
+            self.iteration = index
+
             # check number of non-viable samples taken from prior
             # when too many non-viable samples are taken from prior
             # shrink adaptive scalar which shrinks the kernel function
@@ -152,15 +170,13 @@ class NS:
             if useless_samples == self.useless:
                 self.scalar *= 0.5
                 useless_samples = 0
+                self.scalar_reduction += 1
 
             # sample from the prior using KDE_log
             test_point = self._KDE_sample_log()
 
             # calculate objective
             test_point_objective = self._compute_likelihood(test_point)
-
-            # if index % 100 == 0:
-            print index, self.scalar
 
             # check if sample is within cost bound
             if not isnan(test_point_objective):
@@ -188,7 +204,7 @@ class NS:
             self.stop = 'scalar_limit'
         else:
             self.stop = 'iterations'
-
+        print self.evidence
         # add the likelihood from the working set
         for each in self.working_set:
             self.width_LH.append([log(exp(-(float(index) / self.N))) - log(self.N), each[0]])
