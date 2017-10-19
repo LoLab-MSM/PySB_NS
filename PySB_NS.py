@@ -1,5 +1,5 @@
 
-# Software by Michael Kochen 2017.
+# GNU General Public License software (C) Michael Kochen 2017.
 # Based on the algorithm published by Sivia and Skilling 2006,
 # and translated to Python by Issac Trotts in 2007.
 # http://www.inference.org.uk/bayesys/
@@ -20,7 +20,7 @@ import csv
 
 class NS:
 
-    def __init__(self, model, likelihood_function, data, alg='NS'): # model, likelihood_function, data
+    def __init__(self, model, likelihood_function, data, alg='NS'):
         self.model = model
         self.likelihood_function = likelihood_function
         self.data = data
@@ -29,7 +29,7 @@ class NS:
         self.prior_2kf = [-8, -4]
         self.prior_1kr = [-4, 0]
         self.prior_1kc = [-1, 3]
-        self.iterations = 1000
+        self.iterations = 10000
         self.scalar = 10.0
         self.scalar_reduction = 0
         self.scalar_limit = .0001
@@ -37,7 +37,7 @@ class NS:
         self.information = 0.0
         self.iteration = 0
         self.useless = 10
-        self.N = 100
+        self.N = 1000
         self.time = []
         self.working_set = []
         self.params = []
@@ -56,6 +56,7 @@ class NS:
 
         summary_object = self.model.name
         summary = open(summary_object, 'w')
+        summary.write(summary_object)
         summary.write('parameters: ' + str(len(self.params)) + '\n')
         summary.write('iteration: ' + str(self.iteration) + '\n')
         summary.write('scalar: ' + str(self.scalar) + '\n')
@@ -64,15 +65,16 @@ class NS:
         summary.write('information: ' + str(self.information) + '\n')
         summary.write('stop criteria: ' + self.stop + '\n\n')
         summary.close()
-        print
-        print self.model.name
-        print 'parameters: ' + str(len(self.params))
-        print 'iteration: ' + str(self.iteration)
-        print 'scalar: ' + str(self.scalar)
-        print 'scalar reduction: ' + str(self.scalar_reduction)
-        print 'evidence: ' + str(self.evidence) + ' +/- ' + str(sqrt(self.information / self.N))
-        print 'information: ' + str(self.information)
-        print 'stop criteria: ' + self.stop + '\n\n'
+
+        # print
+        # print self.model.name
+        # print 'parameters: ' + str(len(self.params))
+        # print 'iteration: ' + str(self.iteration)
+        # print 'scalar: ' + str(self.scalar)
+        # print 'scalar reduction: ' + str(self.scalar_reduction)
+        # print 'evidence: ' + str(self.evidence) + ' +/- ' + str(sqrt(self.information / self.N))
+        # print 'information: ' + str(self.information)
+        # print 'stop criteria: ' + self.stop + '\n\n'
 
     def importData(self):
 
@@ -159,7 +161,7 @@ class NS:
         useless_samples = 0
         index = 1
 
-        while index < self.iterations and self.scalar > self.scalar_limit:
+        while index <= self.iterations and self.scalar > self.scalar_limit:
 
             self.iteration = index
 
@@ -168,7 +170,7 @@ class NS:
             # shrink adaptive scalar which shrinks the kernel function
 
             if useless_samples == self.useless:
-                self.scalar *= 0.5
+                self.scalar *= 0.9
                 useless_samples = 0
                 self.scalar_reduction += 1
 
@@ -204,7 +206,7 @@ class NS:
             self.stop = 'scalar_limit'
         else:
             self.stop = 'iterations'
-        print self.evidence
+
         # add the likelihood from the working set
         for each in self.working_set:
             self.width_LH.append([log(exp(-(float(index) / self.N))) - log(self.N), each[0]])
@@ -225,6 +227,7 @@ class NS:
             else:
                 accept = False
                 log_coord = None
+
                 while not accept:
                     log_coord = np.random.normal(log10(each), self.scalar)
                     if self.params[i][0] <= log_coord <= self.params[i][1]:
@@ -236,8 +239,7 @@ class NS:
     def _nested_sampling_MCMC(self):
 
         index = 1
-        while index < self.iterations and \
-                        exp(-((float(index) - 1) / self.N)) - exp(-(float(index) / self.N)) > 5e-324:
+        while index < self.iterations and exp(-((float(index) - 1) / self.N)) - exp(-(float(index) / self.N)) > 5e-324:
 
             # update evidence and working set
             LH_addition = self.working_set[-1][0]
@@ -265,7 +267,7 @@ class NS:
 
         j = 0
         while j < 20:
-            print j
+
             new_coords = []
             for i,each in enumerate(self.model.parameters):
                 if each.name[-2:] == '_0':
