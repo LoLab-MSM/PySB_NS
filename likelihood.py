@@ -5,7 +5,7 @@
 def likelihood_function(ex_data, simulation):
 
     # setup: find indices for [bidM, bidU, bidT, smacA, smacC, smacM, parpC, parpU]
-    names = ['BidM_obs', 'BidU_obs', 'BidT_obs', 'SmacA_obs', 'SmacC_obs', 'SmacM_obs', 'PARPC_obs', 'PARPU_obs']
+    names = ['BidM_obs', 'BidU_obs', 'BidT_obs', 'SmacA_obs', 'SmacC_obs', 'SmacM_obs', 'ParpC_obs', 'ParpU_obs']
     indices = [None for _ in range(len(names))]
     for i,each in enumerate(simulation[0]):
         for j,item in enumerate(names):

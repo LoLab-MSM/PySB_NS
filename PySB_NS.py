@@ -11,17 +11,23 @@
 #   - an MCMC algorithm based on the original algorithm
 #   - a new kernel density estimate method
 
+import sys
+# sys.path.insert(0, '/gpfs22/home/kochenma/pysb')
 from pysb.integrate import Solver
+# from pysb.pathfinder import set_path
 import numpy as np
 from copy import deepcopy
 import random
 from math import *
 import csv
 
+# set_path('bng','/home/kochenma/BioNetGen')
+
 class NS:
 
-    def __init__(self, model, likelihood_function, data, alg='NS'):
+    def __init__(self, model, likelihood_function, data, outpath, alg='NS'):
         self.model = model
+        self.outpath = outpath
         self.likelihood_function = likelihood_function
         self.data = data
         self.model_solver = None
@@ -29,7 +35,7 @@ class NS:
         self.prior_2kf = [-8, -4]
         self.prior_1kr = [-4, 0]
         self.prior_1kc = [-1, 3]
-        self.iterations = 10000
+        self.iterations = 100
         self.scalar = 10.0
         self.scalar_reduction = 0
         self.scalar_limit = .0001
@@ -37,7 +43,9 @@ class NS:
         self.information = 0.0
         self.iteration = 0
         self.useless = 10
-        self.N = 1000
+        self.N = 10
+        self.growth_criteria = 2e-6
+        self.history = []
         self.time = []
         self.working_set = []
         self.params = []
@@ -54,9 +62,9 @@ class NS:
 
     def _output(self):
 
-        summary_object = self.model.name
+        summary_object = self.outpath + self.model.name
         summary = open(summary_object, 'w')
-        summary.write(summary_object)
+        summary.write(summary_object + '\n')
         summary.write('parameters: ' + str(len(self.params)) + '\n')
         summary.write('iteration: ' + str(self.iteration) + '\n')
         summary.write('scalar: ' + str(self.scalar) + '\n')
@@ -64,17 +72,20 @@ class NS:
         summary.write('evidence: ' + str(self.evidence) + ' +/- ' + str(sqrt(self.information / self.N)) + '\n')
         summary.write('information: ' + str(self.information) + '\n')
         summary.write('stop criteria: ' + self.stop + '\n\n')
+        for i,each in enumerate(self.history):
+            summary.write(str(i) + ', ' + str(each) + '\n')
+
         summary.close()
 
-        # print
-        # print self.model.name
-        # print 'parameters: ' + str(len(self.params))
-        # print 'iteration: ' + str(self.iteration)
-        # print 'scalar: ' + str(self.scalar)
-        # print 'scalar reduction: ' + str(self.scalar_reduction)
-        # print 'evidence: ' + str(self.evidence) + ' +/- ' + str(sqrt(self.information / self.N))
-        # print 'information: ' + str(self.information)
-        # print 'stop criteria: ' + self.stop + '\n\n'
+        print
+        print self.model.name
+        print 'parameters: ' + str(len(self.params))
+        print 'iteration: ' + str(self.iteration)
+        print 'scalar: ' + str(self.scalar)
+        print 'scalar reduction: ' + str(self.scalar_reduction)
+        print 'evidence: ' + str(self.evidence) + ' +/- ' + str(sqrt(self.information / self.N))
+        print 'information: ' + str(self.information)
+        print 'stop criteria: ' + self.stop + '\n\n'
 
     def importData(self):
 
@@ -121,7 +132,7 @@ class NS:
         # construct the working population of N parameter sets
         k=0
         while k < self.N:
-
+            print k
             # randomly choose points from parameter space
             point = []
             for each in self.params:
@@ -149,6 +160,10 @@ class NS:
         for i,each in enumerate(self.model_solver.yobs):
             sim_trajectories.append([self.time[i]] + list(each))
 
+        # for each in sim_trajectories:
+        #     print each
+        # print
+
         # calculate the cost
         cost = self.likelihood_function(self.processed_data, sim_trajectories)
         if isinstance(cost, float):
@@ -160,9 +175,9 @@ class NS:
 
         useless_samples = 0
         index = 1
-
-        while index <= self.iterations and self.scalar > self.scalar_limit:
-
+        diff = 1
+        while index <= self.iterations and self.scalar > self.scalar_limit and diff > self.growth_criteria:
+            print index, diff
             self.iteration = index
 
             # check number of non-viable samples taken from prior
@@ -188,12 +203,14 @@ class NS:
                     LH_addition = self.working_set.pop()[0]
                     width = log(exp(-((float(index) - 1) / self.N)) - exp(-(float(index) / self.N)))
                     self.width_LH.append([width, LH_addition])
-                    old_evi = float(self.evidence)
+                    old_evi = float(deepcopy(self.evidence))
                     self.evidence = np.logaddexp(float(self.evidence), (LH_addition + width))
+                    self.history.append(self.evidence)
                     self.information = exp((LH_addition + width) - self.evidence) * LH_addition + \
                             exp(old_evi - self.evidence) * (self.information + old_evi) - self.evidence
                     self.working_set.append([test_point_objective, list(test_point)])
                     self.working_set.sort(reverse=True)
+                    diff = exp(self.evidence) - exp(old_evi)
                     useless_samples = 0
 
                     index += 1
@@ -202,16 +219,19 @@ class NS:
             else:
                 useless_samples += 1
 
-        if index < self.iterations:
-            self.stop = 'scalar_limit'
-        else:
+        if index > self.iterations:
             self.stop = 'iterations'
+        if self.scalar <= self.scalar_limit:
+            self.stop = 'scalar limit'
+        if diff <= self.growth_criteria:
+            self.stop = 'growth limit'
 
         # add the likelihood from the working set
         for each in self.working_set:
             self.width_LH.append([log(exp(-(float(index) / self.N))) - log(self.N), each[0]])
             increment = (each[0] - log(self.N) + log(exp(-(float(index) / self.N))))
             self.evidence = np.logaddexp(float(self.evidence), increment)
+        self.history.append(self.evidence)
 
     def _KDE_sample_log(self):
 
