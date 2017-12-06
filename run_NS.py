@@ -7,9 +7,7 @@ import sys
 import imp
 
 a = datetime.datetime.now()
-print sys.argv[0]
-print sys.argv[1]
-quit()
+
 model = imp.load_source('model', sys.argv[1]).model
 
 outfile = sys.argv[2]
