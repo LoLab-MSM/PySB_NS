@@ -10,7 +10,7 @@ a = datetime.datetime.now()
 
 model = imp.load_source('model', sys.argv[1]).model
 
-outfile = sys.argv[2]
+outfile = sys.argv[1]
 # outfile = '/home/mak/PycharmProjects/PySB_NS/'
 NS(model, lh, 'earm_data.csv', outfile)
 
